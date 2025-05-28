@@ -8,13 +8,13 @@ import (
 )
 
 type Request struct {
-	method Method `json:"method"`
-	body   string `json:"body"`
+	Method Method `json:"method"`
+	Body   string `json:"body"`
 }
 
 type Response struct {
-	statusCode StatusCode `json:"status_code"`
-	body       string     `json:"body"`
+	StatusCode StatusCode `json:"status_code"`
+	Body       string     `json:"body"`
 }
 
 func cleanJSONData(data []byte) []byte {

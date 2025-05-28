@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/MuriloUnten/tcp-file-transfer/protocol"
 	"fmt"
 	"log"
 	"net"
@@ -71,9 +72,28 @@ func (s *Server) HandleConnection(conn net.Conn) {
 			continue
 		}
 
-		msg := string(buf[:n])
-		fmt.Println("Message from ", conn.RemoteAddr())
-		fmt.Println(msg)
+		msg := buf[:n]
+		req := protocol.Request{}
+		err = req.Decode(msg)
+		if err != nil {
+			fmt.Println("error decoding request:", err)
+			s.WriteResponse(conn, protocol.BadRequest, err.Error())
+			continue
+		}
+
+		fmt.Printf("Request from %s | %s\n", conn.RemoteAddr(), protocol.TranslateMethod(req.Method))
+		fmt.Println(req.Body)
+
+		switch req.Method {
+		case protocol.Chat:
+			s.WriteResponse(conn, protocol.Ok, "")
+		case protocol.Fetch:
+
+		case protocol.Quit:
+
+		default:
+			log.Fatal("ITS COOKED!! THIS SHOULD NEVER HAPPEN")
+		}
 	}
 }
 
@@ -82,6 +102,20 @@ func (s *Server) HandleInput() {
 		message := s.stdinScanner.Text()
 		s.BroadcastMessage(message)
 	}
+}
+
+func (s *Server) WriteResponse(conn net.Conn, status protocol.StatusCode, body string) error {
+	response := protocol.Response{
+		StatusCode: status,
+		Body: body,
+	}
+	out, err := response.Encode()
+	if err != nil {
+		log.Fatal("error encoding response:", err)
+	}
+
+	_, err = conn.Write(out)
+	return err
 }
 
 func (s *Server) BroadcastMessage(message string) {
