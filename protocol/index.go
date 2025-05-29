@@ -1,20 +1,31 @@
 package protocol
 
 import (
-	"encoding/json"
-	"fmt"
 	"bytes"
 	"unicode"
 )
 
-type Request struct {
-	Method Method `json:"method"`
-	Body   string `json:"body"`
-}
+type MsgType string
 
-type Response struct {
-	StatusCode StatusCode `json:"status_code"`
-	Body       string     `json:"body"`
+const (
+	REQUEST MsgType = "request"
+	RESPONSE MsgType = "response"
+	SERVER_SENT_EVENT MsgType = "sse"
+	STREAM MsgType = "stream"
+)
+
+/*
+	Message is the interface for all types of communication in the system.
+	The possible forms of messages are the following:
+		1. Request
+		2. Response
+		3. SSE (Server Sent Event)
+		4. Stream
+*/
+type Message interface {
+	Type() MsgType
+	Encode() ([]byte, error)
+	Decode(data []byte) (error)
 }
 
 func cleanJSONData(data []byte) []byte {
@@ -25,38 +36,4 @@ func cleanJSONData(data []byte) []byte {
 		}
 		return r
 	}, data)
-}
-
-func (m *Request) Encode() ([]byte, error) {
-	data, err := json.Marshal(m)
-	if err != nil {
-		return nil, fmt.Errorf("encoding error: %v", err)
-	}
-	return data, nil
-}
-
-func (m *Request) Decode(data []byte) error {
-	cleanData := cleanJSONData(data)
-	err := json.Unmarshal(cleanData, m)
-	if err != nil {
-		return fmt.Errorf("decoding error: %v", err)
-	}
-	return nil
-}
-
-func (m *Response) Encode() ([]byte, error) {
-	data, err := json.Marshal(m)
-	if err != nil {
-		return nil, fmt.Errorf("encoding error: %v", err)
-	}
-	return data, nil
-}
-
-func (m *Response) Decode(data []byte) error {
-	cleanData := cleanJSONData(data)
-	err := json.Unmarshal(cleanData, m)
-	if err != nil {
-		return fmt.Errorf("decoding error: %v", err)
-	}
-	return nil
 }

@@ -10,19 +10,25 @@ import (
 )
 
 type Server struct {
-	port   string
-	ln     net.Listener
-	conns  []net.Conn
-	quitch chan struct{}
+	port          string
+	ln            net.Listener
+	conns         []net.Conn
+	quitch        chan struct{}
 	stdinScanner  *bufio.Scanner
+	fileDirectory string
 }
 
-func NewServer(port string) *Server {
+func NewServer(port, fileDirectory string) *Server {
+	if _, err := os.ReadDir(fileDirectory); err != nil {
+		log.Fatal(err)
+	}
+
 	return &Server{
-		port:   port,
-		quitch: make(chan struct{}),
-		conns:  make([]net.Conn, 0),
+		port:          port,
+		quitch:        make(chan struct{}),
+		conns:         make([]net.Conn, 0),
 		stdinScanner:  bufio.NewScanner(os.Stdin),
+		fileDirectory: fileDirectory,
 	}
 }
 
@@ -63,7 +69,7 @@ func (s *Server) AcceptConnections() {
 
 func (s *Server) HandleConnection(conn net.Conn) {
 	defer conn.Close()
-	buf := make([]byte, 2048)
+	buf := make([]byte, 4096 + 1024)
 
 	for {
 		n, err := conn.Read(buf)
@@ -81,26 +87,28 @@ func (s *Server) HandleConnection(conn net.Conn) {
 			continue
 		}
 
-		fmt.Printf("Request from %s | %s\n", conn.RemoteAddr(), protocol.TranslateMethod(req.Method))
+		fmt.Printf("Request from %s | %s\n", conn.RemoteAddr(), req.Method)
 		fmt.Println(req.Body)
 
 		switch req.Method {
 		case protocol.Chat:
 			s.WriteResponse(conn, protocol.Ok, "")
 		case protocol.Fetch:
-
+			fileName := req.Body
+			if len(fileName) == 0 {
+				s.WriteResponse(conn, protocol.BadRequest, "invalid empty file name")
+			}
+			// fileBytes, err := os.ReadFile(s.fileDirectory + "/" + fileName)
+			// if err != nil {
+			// 	if os.IsNotExist(err) {
+			// 		s.WriteResponse(conn, protocol.NotFound, err.Error())
+			// 	}
+			// }
 		case protocol.Quit:
 
 		default:
 			log.Fatal("ITS COOKED!! THIS SHOULD NEVER HAPPEN")
 		}
-	}
-}
-
-func (s *Server) HandleInput() {
-	for s.stdinScanner.Scan() {
-		message := s.stdinScanner.Text()
-		s.BroadcastMessage(message)
 	}
 }
 
@@ -118,10 +126,24 @@ func (s *Server) WriteResponse(conn net.Conn, status protocol.StatusCode, body s
 	return err
 }
 
+func (s *Server) HandleInput() {
+	for s.stdinScanner.Scan() {
+		message := s.stdinScanner.Text()
+		s.BroadcastMessage(message)
+	}
+}
+
 func (s *Server) BroadcastMessage(message string) {
+	sse := protocol.NewSSE()
+	sse.Body = message
+	out, err := sse.Encode()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	for _, c := range s.conns {
 		// TODO modify this to send the message using the protocol for CHAT
-		_, err := c.Write([]byte(message))
+		_, err := c.Write(out)
 		if err != nil {
 			fmt.Println("write error:", err)
 		}
@@ -129,6 +151,6 @@ func (s *Server) BroadcastMessage(message string) {
 }
 
 func main() {
-	s := NewServer(":3000")
+	s := NewServer(":3000", "files")
 	log.Fatal(s.Start())
 }
