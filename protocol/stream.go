@@ -17,19 +17,23 @@ func NewStream() *Stream {
 	}
 }
 
-func (m *Stream) Encode() ([]byte, error) {
-	data, err := json.Marshal(m)
+func (s *Stream) Encode() ([]byte, error) {
+	data, err := json.Marshal(s)
 	if err != nil {
 		return nil, fmt.Errorf("encoding error: %v", err)
 	}
 	return data, nil
 }
 
-func (m *Stream) Decode(data []byte) error {
+func (s *Stream) Decode(data []byte) error {
 	cleanData := cleanJSONData(data)
-	err := json.Unmarshal(cleanData, m)
+	err := json.Unmarshal(cleanData, s)
 	if err != nil {
 		return fmt.Errorf("decoding error: %v", err)
 	}
 	return nil
+}
+
+func (s *Stream) Type() MsgType {
+	return STREAM
 }

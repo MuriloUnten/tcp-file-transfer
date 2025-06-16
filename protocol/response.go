@@ -15,30 +15,34 @@ const (
 )
 
 type Response struct {
-	MessageType MsgType `json:"type"`
 	StatusCode StatusCode `json:"status_code"`
 	Body       string     `json:"body"`
 }
 
-func NewResponse() *Response {
+func NewResponse(code StatusCode, body string) *Response {
 	return &Response{
-		MessageType: RESPONSE,
+		StatusCode: code,
+		Body: body,
 	}
 }
 
-func (m *Response) Encode() ([]byte, error) {
-	data, err := json.Marshal(m)
+func (r *Response) Encode() ([]byte, error) {
+	data, err := json.Marshal(r)
 	if err != nil {
 		return nil, fmt.Errorf("encoding error: %v", err)
 	}
 	return data, nil
 }
 
-func (m *Response) Decode(data []byte) error {
+func (r *Response) Decode(data []byte) error {
 	cleanData := cleanJSONData(data)
-	err := json.Unmarshal(cleanData, m)
+	err := json.Unmarshal(cleanData, r)
 	if err != nil {
 		return fmt.Errorf("decoding error: %v", err)
 	}
 	return nil
+}
+
+func (r *Response) Type() MsgType {
+	return RESPONSE
 }

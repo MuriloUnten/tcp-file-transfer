@@ -78,12 +78,15 @@ func (s *Server) HandleConnection(conn net.Conn) {
 			continue
 		}
 
-		msg := buf[:n]
-		req := protocol.Request{}
-		err = req.Decode(msg)
+		msgBytes := buf[:n]
+		msg, err := protocol.DecodeMessage(msgBytes)
 		if err != nil {
 			fmt.Println("error decoding request:", err)
 			s.WriteResponse(conn, protocol.BadRequest, err.Error())
+			continue
+		}
+		req, ok := msg.(*protocol.Request)
+		if !ok {
 			continue
 		}
 
@@ -113,11 +116,8 @@ func (s *Server) HandleConnection(conn net.Conn) {
 }
 
 func (s *Server) WriteResponse(conn net.Conn, status protocol.StatusCode, body string) error {
-	response := protocol.Response{
-		StatusCode: status,
-		Body: body,
-	}
-	out, err := response.Encode()
+	response := protocol.NewResponse(status, body)
+	out, err := protocol.EncodeMessage(response)
 	if err != nil {
 		log.Fatal("error encoding response:", err)
 	}

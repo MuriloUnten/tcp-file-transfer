@@ -14,14 +14,14 @@ const (
 )
 
 type Request struct {
-	MessageType MsgType `json:"type"`
 	Method Method `json:"method"`
 	Body   string `json:"body"`
 }
 
-func NewRequest() *Request {
+func NewRequest(method Method, body string) *Request {
 	return &Request{
-		MessageType: REQUEST,
+		Method: method,
+		Body: body,
 	}
 }
 
@@ -40,4 +40,8 @@ func (m *Request) Decode(data []byte) error {
 		return fmt.Errorf("decoding error: %v", err)
 	}
 	return nil
+}
+
+func (m *Request) Type() MsgType {
+	return REQUEST
 }
