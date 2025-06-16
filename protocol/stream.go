@@ -6,14 +6,14 @@ import (
 )
 
 type Stream struct {
-	MessageType MsgType `json:"type"`
 	ByteCount int `json:"byte_count"`
 	Body   string `json:"body"`
 }
 
-func NewStream() *Stream {
+func NewStream(count int, body string) *Stream {
 	return &Stream{
-		MessageType: STREAM,
+		ByteCount: count,
+		Body: body,
 	}
 }
 

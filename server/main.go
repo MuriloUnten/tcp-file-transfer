@@ -134,15 +134,13 @@ func (s *Server) HandleInput() {
 }
 
 func (s *Server) BroadcastMessage(message string) {
-	sse := protocol.NewSSE()
-	sse.Body = message
-	out, err := sse.Encode()
+	sse := protocol.NewSSE(message)
+	out, err := protocol.EncodeMessage(sse)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	for _, c := range s.conns {
-		// TODO modify this to send the message using the protocol for CHAT
 		_, err := c.Write(out)
 		if err != nil {
 			fmt.Println("write error:", err)

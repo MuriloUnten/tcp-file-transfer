@@ -6,13 +6,12 @@ import (
 )
 
 type SSE struct {
-	MessageType MsgType `json:"type"`
 	Body   string `json:"body"`
 }
 
-func NewSSE() *SSE {
+func NewSSE(body string) *SSE {
 	return &SSE{
-		MessageType: SERVER_SENT_EVENT,
+		Body: body,
 	}
 }
 
