@@ -1,12 +1,15 @@
 package main
 
 import (
-	"github.com/MuriloUnten/tcp-file-transfer/protocol"
+	"bufio"
+	"crypto/md5"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
-	"bufio"
+
+	"github.com/MuriloUnten/tcp-file-transfer/protocol"
 )
 
 type Server struct {
@@ -85,6 +88,8 @@ func (s *Server) HandleConnection(conn net.Conn) {
 			s.WriteResponse(conn, protocol.BadRequest, err.Error())
 			continue
 		}
+
+		// the server should just ignore any message that is not a Request
 		req, ok := msg.(*protocol.Request)
 		if !ok {
 			continue
@@ -97,16 +102,7 @@ func (s *Server) HandleConnection(conn net.Conn) {
 		case protocol.Chat:
 			s.WriteResponse(conn, protocol.Ok, "")
 		case protocol.Fetch:
-			fileName := req.Body
-			if len(fileName) == 0 {
-				s.WriteResponse(conn, protocol.BadRequest, "invalid empty file name")
-			}
-			// fileBytes, err := os.ReadFile(s.fileDirectory + "/" + fileName)
-			// if err != nil {
-			// 	if os.IsNotExist(err) {
-			// 		s.WriteResponse(conn, protocol.NotFound, err.Error())
-			// 	}
-			// }
+			s.handleFetchRequest(conn, req)
 		case protocol.Quit:
 
 		default:
@@ -146,6 +142,75 @@ func (s *Server) BroadcastMessage(message string) {
 			fmt.Println("write error:", err)
 		}
 	}
+}
+
+func (s *Server) handleFetchRequest(conn net.Conn, req *protocol.Request) {
+	fileName := req.Body
+	if len(fileName) == 0 {
+		s.WriteResponse(conn, protocol.BadRequest, "invalid empty file name")
+	}
+
+	file, err := os.Open(s.fileDirectory + "/" + fileName)
+	if err != nil {
+		if os.IsNotExist(err) {
+			s.WriteResponse(conn, protocol.NotFound, err.Error())
+			return
+		}
+		s.WriteResponse(conn, protocol.InternalError, err.Error())
+		return
+	}
+	defer file.Close()
+	
+	h := md5.New()
+	if _, err := io.Copy(h, file); err != nil {
+		log.Fatal(err)
+	}
+	fileHash := string(h.Sum(nil))
+	file.Seek(0, 0) // return file pointer to the beginning
+
+	s.WriteResponse(conn, protocol.Ok, fileHash)
+
+	buf := make([]byte, 4096)
+	for {
+		n, err := file.Read(buf)
+		fmt.Printf("\n\n\t%d\n\n", n)
+		if err != nil {
+			if err != io.EOF {
+				s.WriteResponse(conn, protocol.InternalError, err.Error())
+				return
+			}
+
+			// handle EOF
+			stream := protocol.NewStream(0, "EOF")
+			err = s.sendMessage(conn, stream)
+			if err != nil {
+				s.WriteResponse(conn, protocol.InternalError, err.Error())
+				return
+			}
+			return
+		}
+
+		stream := protocol.NewStream(n, string(buf))
+		err = s.sendMessage(conn, stream)
+		if err != nil {
+			s.WriteResponse(conn, protocol.InternalError, err.Error())
+			return
+		}
+	}
+}
+
+func (s *Server) sendMessage(conn net.Conn, msg protocol.Message) error {
+	out, err := protocol.EncodeMessage(msg)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	_, err = conn.Write(out)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	return nil
 }
 
 func main() {

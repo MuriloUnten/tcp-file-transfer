@@ -30,7 +30,7 @@ type Message interface {
 }
 
 func DecodeMessage(b []byte) (Message, error) {
-	before, after, found := bytes.Cut(b, []byte("\n"))
+	before, after, found := bytes.Cut(b, []byte("|"))
 	if !found {
 		return nil, errors.New("invalid message format") // TODO fix this (create defined error types)
 	}
@@ -48,8 +48,9 @@ func DecodeMessage(b []byte) (Message, error) {
 	case string(STREAM):
 		msg = new(SSE)
 	default:
-		// TODO return error because invalid message type
+		return nil, errors.New("invalid message type " + msgType) // TODO fix this (create defined error types)
 	}
+
 	err := msg.Decode(after)
 	if err != nil {
 		return nil, err
